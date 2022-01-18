@@ -1,4 +1,3 @@
-from concurrent.futures import process
 import os
 import telnetlib
 import time
@@ -13,6 +12,7 @@ import datetime
 import telegram
 import speedtest
 import netmiko
+import difflib
 
 from netmiko import ConnectHandler
 
@@ -160,14 +160,14 @@ class SSH():
     def send_telegram_message(self, title, message):
         try:
             self.bot.send_chat_action(chat_id=self.chat_id, action=telegram.ChatAction.TYPING)
-            title = "<b>{}</b>".format(title)
-            self.bot.send_message(chat_id=self.chat_id, text=title + "\n" + message, parse_mode=telegram.ParseMode.HTML)
+            title = "<pre><code class='language-python'>{}</code></pre>".format(title)
+            self.bot.send_message(chat_id=self.chat_id, text=title + "\n" + message , parse_mode=telegram.ParseMode.HTML)
         except Exception as e:
             print(e)
             with open("telegram_message.txt", "w", encoding="utf8") as f:
                 f.write(str(message))
             f.close()
-            self.bot.send_document(chat_id=self.chat_id, document=open("telegram_message.txt", "rb"))
+            self.bot.send_document(chat_id=self.chat_id, document=open("telegram_message.txt", "rb"), caption="<pre>NỘI DUNG TIN NHẮN</pre>", parse_mode=telegram.ParseMode.HTML)
             
     def connect_switch(self, ip, username, password, secret):
         try:
@@ -189,13 +189,49 @@ class SSH():
         except Exception as e:
             print(e)
 
-    def get_config(self):
+    def save_config(self, ip):
         try:
-            return self.ssh.send_command("show run")
+            output = self.ssh.send_command_timing("show run")
+            filename = "config_{}_{}.txt".format(ip, datetime.datetime.now().strftime("%Y%m%d"))
+            with open(filename, "w", encoding="utf8") as f:
+                f.write(output)
+            f.close()
         except Exception as e:
             print(e)
 
-    def backup_config(self, host, username, password, filename):
+    def detect_changed_config(self, ip):
+        '''
+        Thực hiện backup file config của switch
+        và sau 2 tiếng, thực hiện đọc file config mới
+        và so sánh 2 file config, nếu có sự thay đổi
+        thì thông báo cho người dùng
+        '''
+        try:
+            output = self.ssh.send_command("show run")
+            old_file = "config_{}_{}.txt".format(ip, datetime.datetime.now().strftime("%Y%m%d"))
+            new_file = "temp_config_{}_{}.txt".format(ip, datetime.datetime.now().strftime("%Y%m%d"))
+            with open(new_file, "w", encoding="utf8") as f:
+                f.write(output)
+            f.close()
+            if os.path.exists(old_file):
+                difference = ""
+                with open(old_file, "r", encoding="utf8") as old, open(new_file, "r", encoding="utf8") as new:
+                    # Tạo file HTML so sánh sự khác biệt giữa 2 file config
+                    difference += difflib.HtmlDiff().make_file(fromlines=old.readlines(),
+                                                           tolines=new.readlines(), fromdesc="Old Config", todesc="New Config")
+                f.close()
+                os.replace(new_file, old_file)
+                with open('difference.html', 'w', encoding="utf8") as f:
+                    f.write(difference)
+                f.close()
+                self.bot.send_document(chat_id=self.chat_id, document=open("difference.html", "rb"), caption="<pre>NỘI DUNG FILE CONFIG</pre>", parse_mode=telegram.ParseMode.HTML)
+            else:
+                self.save_config(ip)
+                self.send_telegram_message("Thông báo", "File config của switch {} đã được backup lần đầu".format(ip))
+        except Exception as e:
+            print(e)
+
+    def backup_config_ftp(self, host, username, password, filename):
         backup_config_filename = filename + "_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
         backup_config_command = "copy running-config ftp://" + str(username) + ":" + str(password) + "@" + str(host) + "/" + backup_config_filename
         try:
@@ -205,11 +241,19 @@ class SSH():
         except Exception as e:
             print(e)
 
+    def speed_test(self):
+        try:
+            spt = speedtest.Speedtest()
+            spt.get_best_server()
+            self.send_telegram_message("SPEEDTEST", "<b>Download speed:</b> {} Mb/s\n<b>Upload speed:</b> {} Mb/s\n<b>Latency:</b> {} ms\n<b>Server:</b> {}".format(round((round(spt.download()) / 1048576), 2), round((round(spt.upload()) / 1048576), 2), round(spt.results.ping, 2), spt.results.server['sponsor'] + ' - ' + spt.results.server['name'] + ', ' + spt.results.server['country']))
+        except Exception as e:
+            print(e)
+
     def run(self):
         device = self.devices.find_one()
         self.connect_switch(device['ip'], device['username'], cryptocode.decrypt(device['password'], self.key_encrypt), cryptocode.decrypt(device['secret'], self.key_encrypt))
-        self.backup_config(device['ftp_host'], device['ftp_username'], cryptocode.decrypt(device['ftp_password'], self.key_encrypt), device['ip'])
-        # self.send_telegram_message("SSH Execute command", )
+        # self.backup_config(device['ftp_host'], device['ftp_username'], cryptocode.decrypt(device['ftp_password'], self.key_encrypt), device['ip'])
+        self.detect_changed_config(device['ip'])
         self.disconnect()
 
 # Kết nối Telnel với Switch
