@@ -1,9 +1,11 @@
+from calendar import different_locale
 import os
 import telnetlib
 import time
 import sys
 import re
 import json
+from tkinter import E
 import cryptocode
 import pymongo
 import getpass
@@ -13,6 +15,7 @@ import telegram
 import speedtest
 import netmiko
 import difflib
+import ast
 
 from netmiko import ConnectHandler
 
@@ -241,6 +244,42 @@ class SSH():
         except Exception as e:
             print(e)
 
+    def check_port(self):
+        try:
+            return self.execute_command("show interface status")
+        except Exception as e:
+            print(e)
+
+    def check_vlan(self):
+        try:
+            return self.execute_command("show vlan")
+        except Exception as e:
+            print(e)
+
+    def check_device_status(self):
+        try:
+            output = self.execute_command("show arp")
+            output = output.split("\n")
+            regex = "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
+            table_data = [['IP', 'Status']]
+
+            for line in output:
+                ip = re.findall(r'[0-9]+(?:\.[0-9]+){3}', line)
+                if ip:
+                    ping_output = self.execute_command("ping {} repeat 200".format(ip[0]))
+                    if "Success rate" in ping_output:
+                        ping_output = ping_output.split("\n")[5]
+                        if "100 percent" in ping_output:
+                            table_data.append([ip[0], ping_output.split(",")[-1]])
+                        else:
+                            table_data.append([ip[0], 'Ping failed'])
+                    else:
+                        table_data.append([ip[0], 'Ping failed'])
+            table = tabulate.tabulate(table_data, tablefmt="fancy_grid")
+            self.bot.send_message(self.chat_id, '<pre>' + table + '</pre>', parse_mode=telegram.ParseMode.HTML)
+        except Exception as e:
+            print(e)
+
     def speed_test(self):
         try:
             spt = speedtest.Speedtest()
@@ -249,11 +288,50 @@ class SSH():
         except Exception as e:
             print(e)
 
+    def save_arp(self, ip):
+        try:
+            output = self.execute_command("show arp")
+            output = output.split("\n")
+            output.pop(0)
+            result = []
+            for i in output:
+                line = i.split()
+                line.pop(2)
+                result.append(" ".join(line))
+            # print(result)
+            self.database['arp'].insert_one({"ip": str(ip), "log": str(result), "time": int(datetime.datetime.now().timestamp())})
+        except Exception as e:
+            print(e)
+
+    def check_new_device(self):
+        try:
+            find_arp = self.database['arp'].find_one(sort=[("time", -1)])
+            if len(list(find_arp)) > 0:
+                last_log = ast.literal_eval(find_arp['log'])
+                try:
+                    new_log = self.execute_command("show arp")
+                    new_log = new_log.split("\n")
+                    new_log.pop(0)
+                    new_devices = []
+                    for i in new_log:
+                        line = i.split()
+                        line.pop(2)
+                        new_devices.append(" ".join(line))
+                    difference = list(set(new_devices).symmetric_difference(set(last_log)))
+                    if len(difference) > 0:
+                        self.send_telegram_message("CẢNH BÁO CÓ THIẾT BỊ KẾT NỐI/NGẮT KẾT NỐI", "\n".join(map(str, difference)))
+                except Exception as e:
+                    print(e)
+        except Exception as e:
+            print(e)
+
     def run(self):
         device = self.devices.find_one()
         self.connect_switch(device['ip'], device['username'], cryptocode.decrypt(device['password'], self.key_encrypt), cryptocode.decrypt(device['secret'], self.key_encrypt))
         # self.backup_config(device['ftp_host'], device['ftp_username'], cryptocode.decrypt(device['ftp_password'], self.key_encrypt), device['ip'])
-        self.detect_changed_config(device['ip'])
+        # self.send_telegram_message("CHECK VLAN", self.check_vlan())
+        self.save_arp(device['ip'])
+        self.check_new_device()
         self.disconnect()
 
 # Kết nối Telnel với Switch
