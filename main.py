@@ -1,11 +1,9 @@
-from calendar import different_locale
 import os
 import telnetlib
 import time
 import sys
 import re
 import json
-from tkinter import E
 import cryptocode
 import pymongo
 import getpass
@@ -173,8 +171,17 @@ class SSH():
             self.bot.send_document(chat_id=self.chat_id, document=open("telegram_message.txt", "rb"), caption="<pre>NỘI DUNG TIN NHẮN</pre>", parse_mode=telegram.ParseMode.HTML)
             
     def connect_switch(self, ip, username, password, secret):
+        sw_cisco = {
+            "device_type": "cisco_ios",
+            "ip": ip,
+            "username": username,
+            "password": password,
+            "secret": secret,
+            "port": 22,
+            "verbose": False
+        }
         try:
-            self.ssh = netmiko.ConnectHandler(device_type="cisco_ios", ip=ip, username=username, password=password, secret=secret)
+            self.ssh = netmiko.ConnectHandler(**sw_cisco)
             if not self.ssh.check_enable_mode():
                 self.ssh.enable()
         except Exception as e:
@@ -241,6 +248,7 @@ class SSH():
             self.execute_command(backup_config_command)
             self.execute_command("\n")
             self.execute_command("\n")
+            self.send_telegram_message("THÔNG BÁO BACKUP", "Đã backup file config của switch {} lên FTP".format(filename))
         except Exception as e:
             print(e)
 
@@ -325,14 +333,35 @@ class SSH():
         except Exception as e:
             print(e)
 
+    def read_message(self):
+        try:
+            updates = self.bot.get_updates()
+            if len(updates) >= 2:
+                message = updates[-1].message.text
+                if message.startswith("/"):
+                    message = message.split("/")[1]
+                    self.send_telegram_message(message, self.execute_command(message))
+            else:
+                print("No message")
+        except Exception as e:
+            print(e)
+
     def run(self):
-        device = self.devices.find_one()
-        self.connect_switch(device['ip'], device['username'], cryptocode.decrypt(device['password'], self.key_encrypt), cryptocode.decrypt(device['secret'], self.key_encrypt))
-        # self.backup_config(device['ftp_host'], device['ftp_username'], cryptocode.decrypt(device['ftp_password'], self.key_encrypt), device['ip'])
-        # self.send_telegram_message("CHECK VLAN", self.check_vlan())
-        self.save_arp(device['ip'])
-        self.check_new_device()
-        self.disconnect()
+        devices = self.devices.find()
+        for device in devices:
+            # print(cryptocode.decrypt(device['password'], self.key_encrypt))
+            # Kết nối đến switch
+            self.connect_switch(device['ip'], device['username'], cryptocode.decrypt(device['password'], self.key_encrypt), cryptocode.decrypt(device['key'], self.key_encrypt))
+            # Backup config switch lúc 00:00 mỗi ngày
+            # self.backup_config_ftp(device['ip'], device['username'], cryptocode.decrypt(device['password'], self.key_encrypt), device['ip'])
+            # Kiểm tra thiết bị còn hoạt động hay không mỗi 2 tiếng
+            # self.check_device_status()
+            # Kiểm tra thay đôi config switch mỗi 8 tiếng
+            # self.detect_changed_config(device['ip'])
+            # Check port 5 phút một lần
+            # self.check_port()
+            # self.read_message()
+            # self.disconnect()
 
 # Kết nối Telnel với Switch
 class Telnet():
