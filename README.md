@@ -1,6 +1,6 @@
 # **NETWORK ADMINISTRATOR AUTOMATIONS**
 
-- Các tính năng:
+- **CÁC TÍNH NĂNG**:
 
   1. Phát hiện các thiết bị lạ truy cập vào mạng và cảnh báo qua Telegram
 
@@ -16,8 +16,20 @@
 
   7. Thực thi lệnh thông qua Telegram
 
-- Yêu cầu:
+- **YÊU CẦU**:
 
   1. Switch cisco sử dụng hệ điều hành IOS
 
   2. Switch hỗ trợ SSH hoặc Telnet
+
+- **HƯỚNG DẪN SỬ DỤNG**:
+
+  1. Clone repo
+
+  2. Gõ lệnh: *pip install -r requirements.txt*
+
+  3. Cài đặt MongoDB
+
+  4. Import các file JSON trong thư mục Switch vào MongoDB
+
+  5. Gõ lệnh: *python main.py*
