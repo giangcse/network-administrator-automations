@@ -1,0 +1,13 @@
+[{
+  "_id": {
+    "$oid": "61e51ec683355175a1e63173"
+  },
+  "ip": "10.91.13.249",
+  "username": "vinhlong",
+  "password": "nsG0xuRiuZI=*P/ifcVXqwLxcMooKte4fgg==*dZjkfPiK47/OCvMJhCQVew==*eSILnxq4jzOPJ76IIjJvpQ==",
+  "secret": "Jz8rtbU=*dhBUFvT6is6iALFJBPbaXA==*w0zPJc7Qkusk5NEF2sfl1g==*eJqVLpDm7iVN2k2lcWmmrg==",
+  "name": "Switch_249",
+  "ftp_host": "10.91.13.9",
+  "ftp_username": "cisco",
+  "ftp_password": "*6GeBJYOCQ6DhUukgzgeJCA==*4PXKUHgj5x4ienAuMP5vNA==*Z2jbr3WK0mVP6J9aplsXzg=="
+}]
