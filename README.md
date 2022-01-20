@@ -23,7 +23,7 @@
 
   2. Switch hỗ trợ SSH hoặc Telnet
 
-- **HƯỚNG DẪN SỬ DỤNG**:
+- **HƯỚNG DẪN SỬ DỤNG CLONE REPO GITHUB**:
 
   1. Clone repo
 
@@ -34,3 +34,9 @@
   4. Import các file JSON trong thư mục Switch vào MongoDB
 
   5. Gõ lệnh: *python main.py*
+
+- **HƯỚNG DẪN SỬ DỤNG DOCKER**:
+
+  1. Clone docker hub: *docker pull gphanthanh/networkadministratorautomations*
+
+  2. Chạyyyyyy
