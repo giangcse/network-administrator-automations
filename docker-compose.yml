@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  networkadministratorautomations:
+    image: networkadministratorautomations
+    build:
+      context: .
+      dockerfile: ./Dockerfile
