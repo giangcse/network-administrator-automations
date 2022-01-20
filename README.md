@@ -1,3 +1,4 @@
+![Cover!](https://repository-images.githubusercontent.com/449102380/809b0ca9-4ec0-42cd-9b6c-efbd2d2083b9 "The Cover")
 # **NETWORK ADMINISTRATOR AUTOMATIONS**
 
 - **CÁC TÍNH NĂNG**:
